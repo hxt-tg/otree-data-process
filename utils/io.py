@@ -32,6 +32,10 @@ class OTreeData:
         d = self.get_session(session_code)
         return max(d.index.unique("round_number").values)
 
+    def num_players(self, session_code=None):
+        d = self.get_round(1, session_code)
+        return len(d)
+
     def session_codes(self):
         return self.data.index.unique("session_code").values
 
