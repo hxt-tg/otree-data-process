@@ -56,5 +56,5 @@ def load_session(file_name):
             f'start at {data.time_started(s)}, data {"in" if not data.is_data_complete(s) else ""}complete)'
             for s in session_codes
         ]
-        session_code = option_choice(option_string, "Choose one session below:")
-        return session_code, data.get_session(session_codes[session_code])
+        opt = option_choice(option_string, "Choose one session below:")
+        return session_codes[0], data.get_session(session_codes[opt])

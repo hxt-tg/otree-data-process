@@ -13,9 +13,11 @@ OUTPUT_DIR = 'output'
 def save_player_round(session_code, data: pd.DataFrame):
     """Save player-rounds matrix."""
 
-    def _save_total(ws, d: pd.Series, col_idx):
+    def _save_total(name, col_idx):
+        d = data.player.__getattr__(name)
+        ws0.cell(row=1, column=col_idx, value=name)
         for i in range(len(d)):
-            ws.cell(row=i + 2, column=col_idx, value=d.iloc[i])
+            ws0.cell(row=i + 2, column=col_idx, value=d.iloc[i])
 
     def _save_mat(ws, d: pd.DataFrame):
         ws.cell(row=1, column=1, value='id\\round')
@@ -33,23 +35,21 @@ def save_player_round(session_code, data: pd.DataFrame):
     ws0.title = "All"
     ws0.cell(row=1, column=1, value='round')
     ws0.cell(row=1, column=2, value='id')
-    ws0.cell(row=1, column=3, value='send_T')
-    ws0.cell(row=1, column=4, value='return_T')
-    ws0.cell(row=1, column=5, value='receive_send_T')
-    ws0.cell(row=1, column=6, value='receive_return_T')
 
     for _i, (round_number, player_id) in enumerate(data.index):
         ws0.cell(row=_i + 2, column=1, value=round_number)
         ws0.cell(row=_i + 2, column=2, value=player_id)
 
-    _save_total(ws0, data.player.send_T, 3)
-    _save_total(ws0, data.player.return_T, 4)
-    _save_total(ws0, data.player.receive_send_T, 5)
-    _save_total(ws0, data.player.receive_return_T, 6)
+    _save_total('send_T', 3)
+    _save_total('return_T', 4)
+    _save_total('receive_send_T', 5)
+    _save_total('receive_return_T', 6)
+    _save_total('payoff', 7)
     _save_mat(wb.create_sheet(title='send_T'), data.player.send_T.unstack().T)
     _save_mat(wb.create_sheet(title='return_T'), data.player.return_T.unstack().T)
     _save_mat(wb.create_sheet(title='receive_send_T'), data.player.receive_send_T.unstack().T)
     _save_mat(wb.create_sheet(title='receive_return_T'), data.player.receive_return_T.unstack().T)
+    _save_mat(wb.create_sheet(title='payoff'), data.player.payoff.unstack().T)
     wb.save(file_name)
 
 
