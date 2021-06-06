@@ -12,7 +12,7 @@ def option_choice(options: List[str], prompt="Choose one option below:"):
             print(f'  {i + 1}. {opt}')
         print('  x. Exit')
         ans = input("You choose: ").lower()
-        if ans.startswith('x'): exit(-1)
+        if ans.startswith('x'): exit(0)
         try:
             ans = int(ans)
             assert 1 <= ans <= len(options)

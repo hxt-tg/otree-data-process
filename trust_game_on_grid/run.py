@@ -8,16 +8,17 @@ from utils import option_choice, init, select_data_file, load_session
 
 DATA_DIR = 'data'
 OUTPUT_DIR = 'output'
+APP_NAME = 'trust_game_on_grid'
 
 
 def save_player_round(session_code, data: pd.DataFrame):
     """Save player-rounds matrix."""
 
-    def _save_total(name, col_idx):
-        d = data.player.__getattr__(name)
-        ws0.cell(row=1, column=col_idx, value=name)
-        for i in range(len(d)):
-            ws0.cell(row=i + 2, column=col_idx, value=d.iloc[i])
+    def _save_raw_data(ws, fields):
+        d = data.loc[:, list(map(lambda x: ('player', x), fields))]
+        ws.append(['round', 'id'] + fields)
+        for _round_number, _player_id in d.index:
+            ws.append([_round_number, _player_id] + list(d.loc[(_round_number, _player_id), :].values))
 
     def _save_mat(ws, d: pd.DataFrame):
         ws.cell(row=1, column=1, value='id\\round')
@@ -29,22 +30,12 @@ def save_player_round(session_code, data: pd.DataFrame):
             for j in range(d.shape[1]):
                 ws.cell(row=i + 2, column=j + 2, value=d.iloc[i, j])
 
-    file_name = join(OUTPUT_DIR, f'trust_game_on_grid_{session_code}.xlsx')
+    file_name = join(OUTPUT_DIR, f'{APP_NAME}_{session_code}.xlsx')
     wb = Workbook()
     ws0 = wb.active
     ws0.title = "All"
-    ws0.cell(row=1, column=1, value='round')
-    ws0.cell(row=1, column=2, value='id')
 
-    for _i, (round_number, player_id) in enumerate(data.index):
-        ws0.cell(row=_i + 2, column=1, value=round_number)
-        ws0.cell(row=_i + 2, column=2, value=player_id)
-
-    _save_total('send_T', 3)
-    _save_total('return_T', 4)
-    _save_total('receive_send_T', 5)
-    _save_total('receive_return_T', 6)
-    _save_total('payoff', 7)
+    _save_raw_data(ws0, ['send_T', 'return_T', 'receive_send_T', 'receive_return_T', 'payoff', 'is_node_player'])
     _save_mat(wb.create_sheet(title='send_T'), data.player.send_T.unstack().T)
     _save_mat(wb.create_sheet(title='return_T'), data.player.return_T.unstack().T)
     _save_mat(wb.create_sheet(title='receive_send_T'), data.player.receive_send_T.unstack().T)

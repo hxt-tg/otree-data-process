@@ -76,3 +76,22 @@ class OTreeData:
 
     def __repr__(self):
         return repr(self.data)
+
+
+def pd_to_sheet(work_sheet, data: pd.DataFrame, fields):
+    d = data.loc[:, list(map(lambda x: ('player', x), fields))]
+    work_sheet.append(['round', 'id'] + fields)
+    for _round_number, _player_id in d.index:
+        work_sheet.append([_round_number, _player_id] + list(d.loc[(_round_number, _player_id), :].values))
+
+
+def player_round_mat_to_sheet(work_sheet, data: pd.Series):
+    data = data.unstack().T
+    work_sheet.cell(row=1, column=1, value='id\\round')
+    for i in range(1, data.shape[0] + 1):
+        work_sheet.cell(row=i + 1, column=1, value=i)
+    for i in range(1, data.shape[1] + 1):
+        work_sheet.cell(row=1, column=i + 1, value=i)
+    for i in range(data.shape[0]):
+        for j in range(data.shape[1]):
+            work_sheet.cell(row=i + 2, column=j + 2, value=data.iloc[i, j])
