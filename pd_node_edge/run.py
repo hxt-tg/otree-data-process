@@ -1,4 +1,5 @@
 from os.path import join
+import os
 import sys
 from openpyxl import Workbook
 import pandas as pd
@@ -8,6 +9,8 @@ sys.path.append('..')
 from utils import option_choice, init, select_data_file, load_session, grid
 from utils.io import pd_to_sheet, player_round_mat_to_sheet
 
+DEBUG = False
+DFT_W, DFT_H = 7, 7
 DATA_DIR = 'data'
 OUTPUT_DIR = 'output'
 APP_NAME = 'pd_node_edge'
@@ -80,15 +83,18 @@ def run():
     data = data.rename(
         columns=dict(left_edge='choice_L', up_edge='choice_U', right_edge='choice_R', down_edge='choice_D'))
     num_players = len(data.iloc[data.index.get_level_values('round_number') == 1])
-    w, h = grid.ask_W_H(num_players)
+    w, h = grid.ask_W_H(num_players) if not DEBUG else (DFT_W, DFT_H)
     data = fill_edge_choice(data)
     data = calculate_data(data, w, h)
-    while True:
-        OPERATION[option_choice(list(map(lambda x: x.__doc__, OPERATION)), "Choose one operation:")](
-            session_code, data, w, h)
+    if not DEBUG:
+        while True:
+            OPERATION[option_choice(list(map(lambda x: x.__doc__, OPERATION)), "Choose one operation:")](
+                session_code, data, w, h)
+    else:
+        save_neighbor_info(session_code, data, w, h)
 
 
 if __name__ == '__main__':
     run()
-    # import os
-    # os.system("pause")
+    if not DEBUG:
+        os.system("pause")

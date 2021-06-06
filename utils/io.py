@@ -16,7 +16,10 @@ class OTreeData:
             raise ValueError('Only support `*.xlsx` and `*.csv`.')
 
         # Reindex columns
-        self.data.columns = pd.MultiIndex.from_tuples([c.split('.') for c in self.data.columns])
+        col_tuples = [c.split('.') for c in self.data.columns]
+        if sum(map(lambda x: len(x) != 2, col_tuples)) > 0:
+            raise RuntimeError('Invalid data file, check columns.')
+        self.data.columns = pd.MultiIndex.from_tuples(col_tuples)
         high_level_columns = set(map(lambda x: x[0], self.data.columns))
         if 'player' not in high_level_columns:
             raise ValueError('You may input `all_apps_wide*`, which is not supported yet.')
