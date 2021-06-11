@@ -2,11 +2,11 @@ from os.path import join
 import os
 import sys
 from openpyxl import Workbook
-import pandas as pd
+import traceback
 
 sys.path.append('..')
 from utils import option_choice, init, select_data_file, load_session
-from utils.io import pd_to_sheet, player_round_mat_to_sheet
+from utils.io import pd_to_sheet, player_round_mat_to_sheet, OTreeSessionData
 
 DEBUG = False
 DATA_DIR = 'data'
@@ -14,7 +14,7 @@ OUTPUT_DIR = 'output'
 APP_NAME = 'trust_game_on_grid'
 
 
-def save_player_round(session_code, data: pd.DataFrame):
+def save_player_round(session_code, data: OTreeSessionData):
     """Save player-rounds matrix."""
 
     file_name = join(OUTPUT_DIR, f'{APP_NAME}_{session_code}.xlsx')
@@ -49,6 +49,9 @@ def run():
 
 
 if __name__ == '__main__':
-    run()
-    if not DEBUG:
-        os.system("pause")
+    try:
+        run()
+    except Exception:
+        traceback.print_exception(*sys.exc_info())
+        if not DEBUG:
+            os.system("pause")

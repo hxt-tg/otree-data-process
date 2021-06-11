@@ -1,13 +1,14 @@
 from os.path import join
 import os
 import sys
+import traceback
 from openpyxl import Workbook
-import pandas as pd
+from itertools import product
 import numpy as np
 
 sys.path.append('..')
 from utils import option_choice, init, select_data_file, load_session, grid
-from utils.io import pd_to_sheet, player_round_mat_to_sheet
+from utils.io import pd_to_sheet, player_round_mat_to_sheet, OTreeSessionData
 
 DEBUG = False
 DFT_W, DFT_H = 7, 7
@@ -17,8 +18,37 @@ APP_NAME = 'pd_node_edge'
 I_ROUND = 0
 I_ID = 1
 
+global_vars = dict()
 
-def save_neighbor_info(session_code, data: pd.DataFrame, w, h):
+
+def stats_strategy_response(data: OTreeSessionData, ws=None):
+    """If `ws` is given, save to excel rows."""
+
+    rounds = [data.get_round(i + 1) for i in range(data.num_rounds())]
+    rnd_stats = {}
+    for rnd, (pr, ne) in enumerate(zip(rounds[:-1], rounds[1:]), 2):
+        stats = {k1: {k2: 0 for k2 in product(('Node', 'Edge'), repeat=2)}
+                 for k1 in product(list('CD'), repeat=2)}
+        print(f'\rCalculating strategy response (round {rnd}) ...    ', end='')
+        for pid in range(1, ne.num_players() + 1):
+            nep = ne.loc[pid]
+            prp = pr.loc[pid]
+            stats[(nep.player.choice_L, prp.player.choice_nei_L)][(nep.player.type, prp.player.type_L)] += 1
+            stats[(nep.player.choice_U, prp.player.choice_nei_U)][(nep.player.type, prp.player.type_U)] += 1
+            stats[(nep.player.choice_R, prp.player.choice_nei_R)][(nep.player.type, prp.player.type_R)] += 1
+            stats[(nep.player.choice_D, prp.player.choice_nei_D)][(nep.player.type, prp.player.type_D)] += 1
+            if ws:
+                ws.append((rnd, pid, nep.player.type,
+                           nep.player.choice_L, nep.player.type_L, prp.player.choice_nei_L,
+                           nep.player.choice_U, nep.player.type_U, prp.player.choice_nei_U,
+                           nep.player.choice_R, nep.player.type_R, prp.player.choice_nei_R,
+                           nep.player.choice_D, nep.player.type_D, prp.player.choice_nei_D))
+            rnd_stats[rnd] = stats
+    global_vars['rnd_stats'] = rnd_stats
+    return rnd_stats
+
+
+def save_neighbor_info(session_code, data: OTreeSessionData, w, h):
     """Save a excel with all neighbors' information."""
 
     file_name = join(OUTPUT_DIR, f'{APP_NAME}_neighbors_{session_code}.xlsx')
@@ -30,15 +60,77 @@ def save_neighbor_info(session_code, data: pd.DataFrame, w, h):
                            'choice_L choice_U choice_R choice_D '
                            'type_L type_U type_R type_D '
                            'choice_nei_L choice_nei_U choice_nei_R choice_nei_D'.split(' '))
+    player_round_mat_to_sheet(wb.create_sheet(title='payoff'), data.player.payoff)
+    player_round_mat_to_sheet(wb.create_sheet(title='choice_L'), data.player.choice_L)
+    player_round_mat_to_sheet(wb.create_sheet(title='choice_U'), data.player.choice_U)
+    player_round_mat_to_sheet(wb.create_sheet(title='choice_R'), data.player.choice_R)
+    player_round_mat_to_sheet(wb.create_sheet(title='choice_D'), data.player.choice_D)
+    player_round_mat_to_sheet(wb.create_sheet(title='choice_nei_L'), data.player.choice_nei_L)
+    player_round_mat_to_sheet(wb.create_sheet(title='choice_nei_U'), data.player.choice_nei_U)
+    player_round_mat_to_sheet(wb.create_sheet(title='choice_nei_R'), data.player.choice_nei_R)
+    player_round_mat_to_sheet(wb.create_sheet(title='choice_nei_D'), data.player.choice_nei_D)
     wb.save(file_name)
 
 
-OPERATION = [
-    save_neighbor_info
-]
+def save_strategy_response(session_code, data: OTreeSessionData, w, h):
+    """Save a excel with strategy response."""
+
+    file_name = join(OUTPUT_DIR, f'{APP_NAME}_response_{session_code}.xlsx')
+    wb = Workbook()
+
+    ws0 = wb.active
+    ws0.title = "All"
+    ws0.append('Round player type '
+               'choice_L type_L nei_L_last_choice '
+               'choice_U type_U nei_U_last_choice '
+               'choice_R type_R nei_R_last_choice '
+               'choice_D type_D nei_D_last_choice'.split(' '))
+
+    rnd_stats = stats_strategy_response(data, ws0)
+    ws1 = wb.create_sheet(title='Stats')
+    ws1.append('Round CC CD DC DD'.split() +
+               list(map(lambda x: x[1] + x[0], product('CC CD DC DD'.split(), 'nn nl ln ll'.split()))))
+    for rnd, stats in rnd_stats.items():
+        ws1.append([rnd] + list(map(lambda s: sum(s.values()), stats.values())) +
+                   sum(map(lambda s: list(s.values()), stats.values()), []))
+    print('Done')
+
+    wb.save(file_name)
 
 
-def fill_edge_choice(data: pd.DataFrame):
+def save_strategy_response_barplot(session_code, data: OTreeSessionData, w, h):
+    """Save a bar plot of strategy response statistics."""
+    import matplotlib.pyplot as plt
+
+    file_name = join(OUTPUT_DIR, f'{APP_NAME}_response_stats_{session_code}.pdf')
+    rnd_stats = global_vars.get('rnd_stats', None)
+    if rnd_stats is None: rnd_stats = stats_strategy_response(data)
+
+    colors = [
+        '#ff8826', '#d97321', '#a65819', '#733d11',
+        '#c8ff59', '#aad94c', '#82a63a', '#5a7328',
+        '#26deff', '#21bdd9', '#1991a6', '#116473',
+        '#cc33ff', '#ad2bd9', '#8521a6', '#5c1773']
+    ratio = []
+    rounds = list(range(2, 51))
+    for rnd, stats in rnd_stats.items():
+        values = sum(map(lambda s: list(s.values()), stats.values()), [])
+        ratio.append([v / sum(values) for v in values])
+    ratio = np.array(ratio).T
+    fig, ax = plt.subplots()
+    ax.bar(rounds, ratio[0])
+    start = np.zeros(ratio[0].shape)
+    for i, r in enumerate(ratio):
+        ax.bar(rounds, r, bottom=start, width=1, color=colors[i])
+        start += r
+    ax.axis([min(rounds) - 0.5, max(rounds) + 0.5, 0, 1])
+    ax.set_xlabel('Rounds')
+    ax.set_ylabel('Ratio')
+    plt.savefig(file_name)
+    plt.show()
+
+
+def fill_edge_choice(data: OTreeSessionData):
     nodes = data.player.node_choice.notna()
     data.loc[nodes,
              [('player', 'choice_L'),
@@ -50,7 +142,7 @@ def fill_edge_choice(data: pd.DataFrame):
     return data[data.player.choice_L.notna()]
 
 
-def calculate_data(data: pd.DataFrame, w, h):
+def calculate_data(data: OTreeSessionData, w, h):
     nei = grid.neighbor_mapping(w, h)
     data = data.reindex(columns=data.columns.tolist()
                                 + list(map(lambda x: ('player', x),
@@ -76,6 +168,13 @@ def calculate_data(data: pd.DataFrame, w, h):
     return data
 
 
+OPERATION = [
+    save_neighbor_info,
+    save_strategy_response,
+    save_strategy_response_barplot,
+]
+
+
 def run():
     init(DATA_DIR, OUTPUT_DIR)
     file_name = select_data_file(DATA_DIR)
@@ -91,10 +190,16 @@ def run():
             OPERATION[option_choice(list(map(lambda x: x.__doc__, OPERATION)), "Choose one operation:")](
                 session_code, data, w, h)
     else:
-        save_neighbor_info(session_code, data, w, h)
+        # save_neighbor_info(session_code, data, w, h)
+        # save_strategies_response(session_code, data, w, h)
+        save_strategy_response_barplot(session_code, data, w, h)
+        pass
 
 
 if __name__ == '__main__':
-    run()
-    if not DEBUG:
-        os.system("pause")
+    try:
+        run()
+    except Exception:
+        traceback.print_exception(*sys.exc_info())
+        if not DEBUG:
+            os.system("pause")

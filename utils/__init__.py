@@ -1,7 +1,7 @@
 import os
 from typing import List
 from os.path import join
-from .io import OTreeData
+from .io import OTreeData, OTreeSessionData
 
 
 def option_choice(options: List[str], prompt="Choose one option below:"):
@@ -51,10 +51,6 @@ def load_session(file_name):
     elif len(session_codes) == 1:
         return session_codes[0], data.get_session()
     else:
-        option_string = [
-            f'{s} ({data.num_players(s)} players, {data.num_rounds(s)} rounds, '
-            f'start at {data.time_started(s)}, data {"in" if not data.is_data_complete(s) else ""}complete)'
-            for s in session_codes
-        ]
+        option_string = list(map(OTreeSessionData.session_description, data))
         opt = option_choice(option_string, "Choose one session below:")
-        return session_codes[0], data.get_session(session_codes[opt])
+        return session_codes[opt], data.get_session(session_codes[opt])
