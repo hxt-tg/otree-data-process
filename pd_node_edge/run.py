@@ -107,10 +107,10 @@ def save_strategy_response_barplot(session_code, data: OTreeSessionData, w, h):
     if rnd_stats is None: rnd_stats = stats_strategy_response(data)
 
     colors = [
-        '#ff8826', '#d97321', '#a65819', '#733d11',
-        '#c8ff59', '#aad94c', '#82a63a', '#5a7328',
-        '#26deff', '#21bdd9', '#1991a6', '#116473',
-        '#cc33ff', '#ad2bd9', '#8521a6', '#5c1773']
+        '#733d11', '#a65819', '#d97321', '#ff8826',
+        '#5a7328', '#82a63a', '#aad94c', '#c8ff59',
+        '#116473', '#1991a6', '#21bdd9', '#26deff',
+        '#5c1773', '#8521a6', '#ad2bd9', '#cc33ff', ]
     ratio = []
     rounds = list(range(2, 51))
     for rnd, stats in rnd_stats.items():
@@ -121,6 +121,7 @@ def save_strategy_response_barplot(session_code, data: OTreeSessionData, w, h):
     ax.bar(rounds, ratio[0])
     start = np.zeros(ratio[0].shape)
     for i, r in enumerate(ratio):
+        if sum(r) < 1e-6: continue
         ax.bar(rounds, r, bottom=start, width=1, color=colors[i])
         start += r
     ax.axis([min(rounds) - 0.5, max(rounds) + 0.5, 0, 1])
