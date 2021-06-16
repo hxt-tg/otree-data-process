@@ -71,8 +71,6 @@ def save_per_app(file_name):
             d = session_data[REPEAT_COLS + round_labels(rnd)]
             d.columns = list(map(lambda x: '.'.join(x.split('.')[-2:]), d.columns))
             df_result = df_result.append(d)
-        # d_data = data[data_all_labels]
-        # pd.options.display.max_columns = None
     df_result.to_csv(output_file_name, index=False)
 
 
@@ -80,7 +78,8 @@ def run():
     is_valid_data = lambda x: not x.startswith('~$') and not x.startswith('transform_per_app_') and \
                               (x.endswith('.xlsx') or x.endswith('.csv'))
     while True:
-        file = basename(select_data_file(DATA_DIR, is_valid_data, prompt="Choose one which you want to transform:"))
+        file = basename(select_data_file(DATA_DIR, is_valid_data, skip_only_one=False,
+                                         prompt="Choose one which you want to transform:"))
         save_per_app(file)
 
 

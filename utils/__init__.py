@@ -32,14 +32,14 @@ def init(data_dir, output_dir):
 is_valid_data_file = lambda x: not x.startswith('~$') and (x.endswith('.xlsx') or x.endswith('.csv'))
 
 
-def select_data_file(data_dir, is_valid_data_file_func=is_valid_data_file,
+def select_data_file(data_dir, is_valid_data_file_func=is_valid_data_file, skip_only_one=True,
                      prompt="Choose one which you want to process:"):
     files = []
     for name in filter(is_valid_data_file_func, os.listdir(data_dir)):
         files.append(name)
     if len(files) == 0:
         raise RuntimeError('No valid data file found.')
-    elif len(files) == 1:
+    elif skip_only_one and len(files) == 1:
         return join(data_dir, files[0])
     else:
         return join(data_dir, files[
