@@ -1,10 +1,11 @@
-from os.path import join
+from os.path import join, basename
 import os
 import sys
 import traceback
 import pandas as pd
 
 sys.path.append('..')
+from utils import select_data_file
 
 DEBUG = False
 DFT_W, DFT_H = 6, 6
@@ -78,18 +79,12 @@ def save_per_app(file_name):
 def run():
     is_valid_data = lambda x: not x.startswith('~$') and not x.startswith('transform_per_app_') and \
                               (x.endswith('.xlsx') or x.endswith('.csv'))
-    files = list(filter(is_valid_data, os.listdir(DATA_DIR)))
-    for file in files:
+    while True:
+        file = basename(select_data_file(DATA_DIR, is_valid_data, prompt="Choose one which you want to transform:"))
         save_per_app(file)
-        break
-
-    exit(0)
 
 
 if __name__ == '__main__':
-    from warnings import warn
-
-    warn("This version is only for `ALL APPs`, and will be rewrite or deprecated.", FutureWarning)
     try:
         run()
     except Exception:

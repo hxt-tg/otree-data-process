@@ -29,10 +29,13 @@ def init(data_dir, output_dir):
         os.makedirs(output_dir)
 
 
-def select_data_file(data_dir):
-    is_valid_data = lambda x: not x.startswith('~$') and (x.endswith('.xlsx') or x.endswith('.csv'))
+is_valid_data_file = lambda x: not x.startswith('~$') and (x.endswith('.xlsx') or x.endswith('.csv'))
+
+
+def select_data_file(data_dir, is_valid_data_file_func=is_valid_data_file,
+                     prompt="Choose one which you want to process:"):
     files = []
-    for name in filter(is_valid_data, os.listdir(data_dir)):
+    for name in filter(is_valid_data_file_func, os.listdir(data_dir)):
         files.append(name)
     if len(files) == 0:
         raise RuntimeError('No valid data file found.')
@@ -40,7 +43,7 @@ def select_data_file(data_dir):
         return join(data_dir, files[0])
     else:
         return join(data_dir, files[
-            option_choice(files, "Choose one which you want to process:")])
+            option_choice(files, prompt)])
 
 
 def load_session(file_name):
