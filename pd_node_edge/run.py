@@ -214,9 +214,9 @@ def round_plot(file_name, dict_data, rnd, max_rnd, w, h,
 
     def _plot_payoff_hist(ax, data):
         cm = plt.cm.get_cmap("Blues")
-        _, bins, patches = ax.hist([v['payoff'] for v in data.values()], density=True)
+        _, bins, patches = ax.hist([v['payoff'] for v in data.values()], density=True, range=(-4, 24), bins=12)
         for idx, patch in enumerate(patches):
-            patch.set_facecolor(cm((idx + 1) / len(patches)))
+            patch.set_facecolor(cm((idx + 3) / (len(patches)+2)))
         ax.set_xticks([-4, 10, 24])
         ax.set_xlim([-4.5, 24.5])
         ax.set_ylabel('Payoff', fontsize=font_title, labelpad=0.1)
