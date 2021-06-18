@@ -6,7 +6,13 @@ import traceback
 from openpyxl import Workbook
 from itertools import product
 import numpy as np
+from collections import Counter
 import matplotlib.pyplot as plt
+from matplotlib.gridspec import GridSpec
+import matplotlib as mpl
+
+mpl.rcParams['font.family'] = 'Times New Roman'
+mpl.rcParams['mathtext.fontset'] = 'cm'
 
 sys.path.append('..')
 from utils import option_choice, init, select_data_file, load_session, grid
@@ -136,42 +142,132 @@ def save_strategy_response_barplot(session_code, data: OTreeSessionData, w, h):
 
 
 VIDEO_COLOR_MAP = dict(
-    Node=dict(D='#6A8FE6', C='#EA7462'),
-    Edge=dict(D='#1C47AD', C='#B32A15')
+    Node=dict(C='#EA7462', D='#6A8FE6'),
+    Edge=dict(C='#B32A15', D='#1C47AD')
 )
 
+BAR_COLOR_MAP = ['#2858ba', '#414890', '#663862', '#9b3641', '#ca362c']
 
-def round_plot(data, file_name, rnd, w, h):
+
+def round_plot(file_name, dict_data, rnd, max_rnd, w, h,
+               font_suptitle=20, font_title=10, stats_data=None, hist_CD=None):
     plt.close('all')
-    fig, ax = plt.subplots()
+    fig = plt.Figure(dpi=300)
+    #     gs = GridSpec(8, 14, wspace=2, hspace=5)
+    #     ax_pattern = fig.add_subplot(gs[:, :8])
+    #     ax_evolution = fig.add_subplot(gs[:3, 8:])
+    #     ax_payoff = fig.add_subplot(gs[3:-2, 8:-3])
+    #     ax_choice_stats = fig.add_subplot(gs[3:-2, -3:])
+    #     ax_response = fig.add_subplot(gs[-2:, 8:])
+    gs = GridSpec(16, 30)
+    ax_pattern = fig.add_subplot(gs[:, :16])
+    ax_evolution = fig.add_subplot(gs[2:5, 17:])
+    ax_payoff = fig.add_subplot(gs[6:-5, 17:-7])
+    ax_choice_stats = fig.add_subplot(gs[6:-5, -6:])
+    ax_response = fig.add_subplot(gs[-3:-2, 17:])
 
-    def _fill_xy(i, j, _type):
-        points = [[i - 0.5, j - 0.5], [i - 0.5, j + 0.5], [i + 0.5, j + 0.5], [i + 0.5, j - 0.5], [i - 0.5, j - 0.5]]
-        if _type == 'Node':
-            return np.array(points[:-1])
+    def _plot_pattern(ax, data):
+        def _fill_xy(i, j, _type):
+            points = [[i - 0.5, j - 0.5], [i - 0.5, j + 0.5], [i + 0.5, j + 0.5], [i + 0.5, j - 0.5],
+                      [i - 0.5, j - 0.5]]
+            if _type == 'Node':
+                return np.array(points[:-1])
+            else:
+                return dict(
+                    list(zip(list('LURD'), [np.array([[i, j]] + [p1, p2]) for p1, p2 in zip(points[:-1], points[1:])])))
+
+        def _plot_player(i, j, d):
+            if d['type'] == 'Node':
+                xy = _fill_xy(i, j, d['type'])
+                ax.fill(xy[:, 0], xy[:, 1], VIDEO_COLOR_MAP[d['type']][d['L']])
+            else:
+                for di, xy in _fill_xy(i, j, d['type']).items():
+                    ax.fill(xy[:, 0], xy[:, 1], VIDEO_COLOR_MAP[d['type']][d[di]])
+
+        for pid, p_data in data.items():
+            pi = (pid - 1) // w + 1
+            pj = (pid - 1) % w + 1
+            _plot_player(pi, pj, p_data)
+        ax.set_aspect('equal')
+        ax.set_title('Pattern', fontsize=font_title)
+        ax.set_xlim([0.5, w + 0.5])
+        ax.set_ylim([0.5, h + 0.5])
+        ax.get_xaxis().set_visible(False)
+        ax.get_yaxis().set_visible(False)
+        # ax.axis('off')
+
+    def _plot_evolution(ax, hist_data):
+        if hist_data:
+            Cs = np.array([cnt['C'] for cnt in hist_data])
+            Ds = np.array([cnt['D'] for cnt in hist_data])
+            CDs = Cs + Ds
+            rounds = np.array(list(range(1, len(hist_data) + 1)))
+            ax.plot(rounds, Cs / CDs, '-', color=BAR_COLOR_MAP[-1], label='C')
+            ax.plot(rounds, Ds / CDs, '-', color=BAR_COLOR_MAP[0], label='D')
+            ax.legend(ncol=2, fontsize=6, markerscale=0.8)
+        ax.set_yticks([0, 1])
+        ax.set_xlim([1, max_rnd])
+        ax.set_ylim([0, 1])
+        ax.set_title('Time steps', fontsize=font_title)
+        ax.spines['right'].set_visible(False)
+        ax.spines['top'].set_visible(False)
+
+    def _plot_payoff_hist(ax, data):
+        cm = plt.cm.get_cmap("Blues")
+        _, bins, patches = ax.hist([v['payoff'] for v in data.values()], density=True)
+        for idx, patch in enumerate(patches):
+            patch.set_facecolor(cm((idx + 1) / len(patches)))
+        ax.set_xticks([-4, 10, 24])
+        ax.set_xlim([-4.5, 24.5])
+        ax.set_ylabel('Payoff', fontsize=font_title, labelpad=0.1)
+        ax.get_yaxis().set_ticks([])
+        ax.spines['left'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.spines['top'].set_visible(False)
+
+    def _plot_choice_stats(ax, data):
+        cnt = Counter([''.join([v[_di] for _di in 'LURD']).count('C') for v in data.values()])
+        if cnt[1] + cnt[2] + cnt[3] == 0:
+            ax.pie([cnt[0], cnt[4]], counterclock=False, startangle=90,
+                   labels=['0', '1'], colors=[BAR_COLOR_MAP[0], BAR_COLOR_MAP[-1]],
+                   textprops=dict(fontsize=6, color='#FFFFFF'), labeldistance=0.5)
+            pass
         else:
-            return dict(
-                list(zip(list('LURD'), [np.array([[i, j]] + [p1, p2]) for p1, p2 in zip(points[:-1], points[1:])])))
+            ax.pie([cnt[c] for c in range(5)], counterclock=False, startangle=90,
+                   labels=['0', '1/4', '1/2', '3/4', '1'], colors=BAR_COLOR_MAP,
+                   textprops=dict(fontsize=6, color='#FFFFFF'), labeldistance=0.5)
+        ax.set_ylabel('Choices', fontsize=font_title, labelpad=0.1)
+        ax.spines['right'].set_visible(False)
+        ax.spines['top'].set_visible(False)
 
-    def _plot_player(i, j, d):
-        if d['type'] == 'Node':
-            xy = _fill_xy(i, j, d['type'])
-            ax.fill(xy[:, 0], xy[:, 1], VIDEO_COLOR_MAP[d['type']][d['L']])
-        else:
-            for di, xy in _fill_xy(i, j, d['type']).items():
-                ax.fill(xy[:, 0], xy[:, 1], VIDEO_COLOR_MAP[d['type']][d[di]])
+    def _plot_response(ax, stats_list):
+        if stats_list:
+            stats_total = sum(stats_list)
+            ratio = [v / stats_total for v in stats_list]
+            ax.barh([1], ratio[0])
+            start = 0
+            for i, r in enumerate(ratio):
+                if r < 1e-6: continue
+                ax.barh([1], r, left=start, height=1, color=STRATEGY_RESPONSE_COLOR_MAP[i])
+                start += r
+        ax.set_title('Response', fontsize=font_title, pad=5)
+        ax.get_xaxis().set_visible(False)
+        ax.get_yaxis().set_visible(False)
+        ax.set_xlim([0, 1])
+        ax.set_ylim([0.5, 1.5])
 
-    for pid, p_data in data.items():
-        pi = (pid - 1) // w + 1
-        pj = (pid - 1) % w + 1
-        _plot_player(pi, pj, p_data)
-    ax.set_aspect('equal')
-    ax.get_xaxis().set_visible(False)
-    ax.get_yaxis().set_visible(False)
-    ax.set_title(f'Round {rnd} (Red for cooperation, blue for defection)')
-    ax.axis('off')
-    fig.tight_layout()
-    fig.savefig(file_name, dpi=200)
+    _plot_pattern(ax_pattern, dict_data)
+    _plot_evolution(ax_evolution, hist_CD)
+    _plot_payoff_hist(ax_payoff, dict_data)
+    _plot_choice_stats(ax_choice_stats, dict_data)
+    _plot_response(ax_response, sum([list(v.values()) for v in stats_data.values()], []) if stats_data else None)
+
+    fig.suptitle(f'Round {rnd}', fontsize=font_suptitle, y=0.9)
+    fig.subplots_adjust(left=0.05, bottom=0.01,
+                        right=0.95, top=0.9,
+                        wspace=1.2, hspace=0)
+    # fig.tight_layout()
+    fig.savefig(file_name)
 
 
 def release_video(file_name, image_name_list, fps=24, video_type='mp4'):
@@ -199,9 +295,12 @@ def release_video(file_name, image_name_list, fps=24, video_type='mp4'):
 def render_video(session_code, data: OTreeSessionData, w, h):
     """Save a video for this session."""
     dir_name = join(OUTPUT_DIR, f'{APP_NAME}_render_{session_code}')
-    video_name = join(dir_name, 'output.mp4')
+    video_name = join(dir_name, f'{session_code}_output.mp4')
+    rnd_stats = global_vars.get('rnd_stats', None)
+    if rnd_stats is None: rnd_stats = stats_strategy_response(data)
     if not os.path.exists(dir_name): os.mkdir(dir_name)
     image_name_list = []
+    cnt_CD = []
     for rnd in range(1, data.num_rounds() + 1):
         fig_name = join(dir_name, f'Round_{rnd}.png')
         print(f'\rRender image for round {rnd} ... ', end='')
@@ -210,8 +309,11 @@ def render_video(session_code, data: OTreeSessionData, w, h):
         for pid in range(1, round_data.num_players() + 1):
             d = round_data.loc[pid]
             round_plot_data[pid] = dict(type=d.player.type, L=d.player.choice_L, U=d.player.choice_U,
-                                        R=d.player.choice_R, D=d.player.choice_D)
-        round_plot(round_plot_data, fig_name, rnd, w, h)
+                                        R=d.player.choice_R, D=d.player.choice_D, payoff=d.player.payoff)
+        cnt = Counter(''.join([''.join([v[_di] for _di in 'LURD']) for v in round_plot_data.values()]))
+        cnt_CD.append(cnt)
+        round_plot(fig_name, round_plot_data, rnd, data.num_rounds(),
+                   w, h, stats_data=rnd_stats.get(rnd, None), hist_CD=cnt_CD)
         image_name_list.append(fig_name)
     print('Done')
     release_video(video_name, image_name_list, video_type='mp4')
