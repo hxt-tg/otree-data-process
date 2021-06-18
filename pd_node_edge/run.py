@@ -46,6 +46,7 @@ def stats_strategy_response(data: OTreeSessionData, ws=None):
                            nep.player.choice_R, nep.player.type_R, prp.player.choice_nei_R,
                            nep.player.choice_D, nep.player.type_D, prp.player.choice_nei_D))
             rnd_stats[rnd] = stats
+    print('Done')
     global_vars['rnd_stats'] = rnd_stats
     return rnd_stats
 
