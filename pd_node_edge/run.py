@@ -162,7 +162,7 @@ def round_plot(file_name, dict_data, rnd, max_rnd, w, h,
     gs = GridSpec(16, 30)
     ax_pattern = fig.add_subplot(gs[:, :16])
     ax_evolution = fig.add_subplot(gs[2:5, 17:])
-    ax_payoff = fig.add_subplot(gs[6:-5, 17:-7])
+    ax_payoff = fig.add_subplot(gs[6:-5, 17:-6])
     ax_choice_stats = fig.add_subplot(gs[6:-5, -6:])
     ax_response = fig.add_subplot(gs[-3:-2, 17:])
 
@@ -284,8 +284,8 @@ def release_video(file_name, image_name_list, fps=24, video_type='mp4'):
                             (width, height))
     for i, image_name in enumerate(image_name_list, 1):
         print(f'\rRelease video [Round {i}] ... ', end='')
+        image = cv2.imread(image_name)
         for _ in range(int(fps)):
-            image = cv2.imread(image_name)
             video.write(image)
     video.release()
     cv2.destroyAllWindows()
